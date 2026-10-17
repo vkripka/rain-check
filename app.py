@@ -845,7 +845,14 @@ def api_cron_trigger():
     return jsonify({"status": "ok", **result})
 
 
+@app.route("/api/subscriptions-backup", methods=["GET"])
+def api_subscriptions_backup():
+    """Retorna as inscrições atuais para backup permanente no repositório."""
+    return jsonify(load_subscriptions())
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     logger.info(f"Rain Check rodando na porta {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
+
