@@ -1,0 +1,906 @@
+:root {
+  --bg-top: #091326;
+  --bg-mid: #10254c;
+  --bg-bottom: #193b73;
+  --card-bg: rgba(255, 255, 255, 0.085);
+  --card-border: rgba(255, 255, 255, 0.14);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.75);
+  --text-muted: rgba(255, 255, 255, 0.52);
+  --accent-cyan: #38bdf8;
+  --accent-blue: #60a5fa;
+  --accent-amber: #fbbf24;
+  --accent-emerald: #34d399;
+  --safe-top: env(safe-area-inset-top, 14px);
+  --safe-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+body.theme-rain {
+  --bg-top: #071124;
+  --bg-mid: #0f2547;
+  --bg-bottom: #1b3d6e;
+}
+
+body.theme-maybe {
+  --bg-top: #0d192b;
+  --bg-mid: #1c3454;
+  --bg-bottom: #274c77;
+}
+
+body.theme-clear {
+  --bg-top: #0b2447;
+  --bg-mid: #19457a;
+  --bg-bottom: #2667a8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bottom) 100%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sky-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle at 80% 10%, rgba(56, 189, 248, 0.16), transparent 45%),
+              radial-gradient(circle at 20% 85%, rgba(96, 165, 250, 0.12), transparent 50%);
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* TOP BAR */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.location-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-size: 0.94rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 75%;
+}
+
+.loc-pin-icon {
+  display: flex;
+  color: var(--accent-cyan);
+}
+
+.city-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.updated-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.spin {
+  animation: spinAnim 0.9s linear infinite;
+}
+
+@keyframes spinAnim {
+  to { transform: rotate(360deg); }
+}
+
+/* GLASS CARDS */
+.glass-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* iOS INSTALL GUIDE BANNER */
+.ios-install-card {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(37, 99, 235, 0.22));
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.install-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.install-app-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.install-header h3 {
+  font-size: 1rem;
+  margin-bottom: 2px;
+}
+
+.install-header p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.install-steps {
+  margin-left: 18px;
+  font-size: 0.83rem;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ios-share-symbol, .ios-plus-symbol {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  font-weight: 700;
+}
+
+/* HERO CARD: VAI CHOVER AMANHÃ? */
+.hero-verdict-card {
+  position: relative;
+  border-radius: 26px;
+  padding: 20px 18px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  transition: background 0.35s ease, border-color 0.35s ease;
+}
+
+.hero-verdict-card.verdict-loading {
+  background: linear-gradient(145deg, rgba(30, 58, 138, 0.65), rgba(15, 23, 42, 0.75));
+}
+
+.hero-verdict-card.verdict-yes {
+  background: linear-gradient(145deg, rgba(2, 132, 199, 0.52), rgba(30, 58, 138, 0.72));
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.hero-verdict-card.verdict-maybe {
+  background: linear-gradient(145deg, rgba(217, 119, 6, 0.42), rgba(30, 64, 175, 0.65));
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.hero-verdict-card.verdict-no {
+  background: linear-gradient(145deg, rgba(5, 150, 105, 0.42), rgba(14, 116, 144, 0.62));
+  border-color: rgba(52, 211, 153, 0.5);
+}
+
+.verdict-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.verdict-badge {
+  display: inline-block;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.tomorrow-date-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.verdict-main {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 18px;
+}
+
+.verdict-icon-wrap {
+  width: 68px;
+  height: 68px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verdict-headline {
+  font-size: 1.52rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.verdict-summary {
+  font-size: 0.92rem;
+  line-height: 1.42;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tomorrow-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.metric-box {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 14px;
+  padding: 10px 6px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-label {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* RESUMO ATUAL (AGORA) */
+.current-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.current-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.current-weather-icon {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.current-label-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+}
+
+.tag-now {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.25);
+  color: var(--accent-cyan);
+  letter-spacing: 0.05em;
+}
+
+.current-desc {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.current-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.current-right {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.current-temp-big {
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.current-hilo {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+/* SECTION HEADERS */
+.section-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.section-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.section-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.pill-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* CARROSSEL HORIZONTAL (PRÓXIMAS 24H) */
+.hourly-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hourly-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.hour-item {
+  min-width: 64px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.hour-item.is-rainy {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.38);
+}
+
+.hour-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.hour-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hour-prob {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  min-height: 15px;
+}
+
+.hour-temp {
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.hour-mm {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+/* TURNOS DE AMANHÃ (MADRUGADA, MANHÃ, TARDE, NOITE) */
+.periods-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.period-card {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.period-card.period-rain-alert {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.period-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.period-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.period-hours {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.period-mid {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.period-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.period-temps {
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.period-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.period-bar-wrap {
+  display: flex;
+   flex-direction: column;
+  gap: 4px;
+}
+
+.period-rain-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.74rem;
+}
+
+.period-prob-label {
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.period-mm-label {
+  color: var(--text-secondary);
+}
+
+.prob-bar-bg {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.prob-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #3b82f6);
+  border-radius: 999px;
+}
+
+.drawer-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 4px 0 10px;
+}
+
+.drawer-title {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+/* CENTRAL DE NOTIFICAÇÃO ÀS 21H */
+.notif-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notif-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bell-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+/* iOS Toggle Switch */
+.ios-switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.ios-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ios-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: rgba(255, 255, 255, 0.22);
+  transition: 0.25s;
+  border-radius: 34px;
+}
+
+.ios-slider:before {
+  position: absolute;
+  content: "";
+  height: 24px;
+  width: 24px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.25s;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.ios-switch input:checked + .ios-slider {
+  background-color: #34d399;
+}
+
+.ios-switch input:checked + .ios-slider:before {
+  transform: translateX(22px);
+}
+
+.notif-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.time-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.ios-time-input {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.btn-secondary {
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 13px;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.btn-secondary:active {
+  transform: scale(0.96);
+  background: rgba(56, 189, 248, 0.35);
+}
+
+/* PRÉVIA DA NOTIFICAÇÃO ESTILO TELA DE BLOQUEIO DO iOS */
+.ios-lockscreen-preview {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 2px;
+}
+
+.preview-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.preview-appname {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
+.preview-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.preview-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.preview-body {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.push-feedback {
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* LISTA DE 7 DIAS */
+.daily-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.day-row {
+  display: grid;
+  grid-template-columns: 1.2fr 36px 0.9fr 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.day-row.is-tomorrow {
+  background: rgba(56, 189, 248, 0.13);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.day-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.day-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-rain {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  text-align: center;
+}
+
+.day-temps {
+  text-align: right;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.day-temp-min {
+  color: var(--text-muted);
+  margin-right: 6px;
+}
+
+.app-footer {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+/* MODAL DE BUSCA DE CIDADE */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 9, 20, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.modal-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: #10213f;
+  border-radius: 24px 24px 0 0;
+  padding: 20px 18px calc(var(--safe-bottom) + 20px);
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.search-input-wrap input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.gps-full-btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.16);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.search-result-item {
+  padding: 11px 12px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-result-item:active {
+  background: rgba(56, 189, 248, 0.25);
+}

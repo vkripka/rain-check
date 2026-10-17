@@ -1,0 +1,22 @@
+{
+  "https://web.push.apple.com/QHlbtIk-2LPiaInrqmhyqRCKncj4y_OnacvSl-J7jqBuxGRitc1wi3KAFmluRwv0UebtA2WnW91a0UZ3K1rY6lLwPeSQZXJRMQWlntzamZMnqHYstkzTTrWndV_5HQoZns1mdTw167I9aETdJTbQe0EgS2z1zbyi9xHbO14E2sc": {
+    "subscription": {
+      "endpoint": "https://web.push.apple.com/QHlbtIk-2LPiaInrqmhyqRCKncj4y_OnacvSl-J7jqBuxGRitc1wi3KAFmluRwv0UebtA2WnW91a0UZ3K1rY6lLwPeSQZXJRMQWlntzamZMnqHYstkzTTrWndV_5HQoZns1mdTw167I9aETdJTbQe0EgS2z1zbyi9xHbO14E2sc",
+      "expirationTime": null,
+      "keys": {
+        "p256dh": "BGgz5oY4uh8T5P2hNWmy-9kGIbhvv23IXWgdh1t4IerDniG1kzmiUtgPfk3bDx70FPc-754TtBdeIHFi0nbMbZ0",
+        "auth": "ev3fVeciXZsAWUAUmsBv6w"
+      }
+    },
+    "lat": -23.208,
+    "lon": -45.9031,
+    "city": "São José dos Campos, SP",
+    "timezone": "America/Sao_Paulo",
+    "notify_hour": 21,
+    "notify_minute": 0,
+    "notify_time": "21:00",
+    "enabled": true,
+    "updated_at": "2026-10-17T20:52:35.523556",
+    "last_notified_date": null
+  }
+}

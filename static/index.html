@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Rain Check — Vai Chover Amanhã?</title>
+
+  <!-- Configurações nativas para iOS Home Screen Web App -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Rain Check" />
+  <meta name="theme-color" content="#0b1528" />
+
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/icon-180.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="theme-default">
+  <!-- Camada de atmosfera dinâmica (chuva / brilho solar) -->
+  <div id="sky-backdrop" class="sky-backdrop"></div>
+
+  <div class="app-shell">
+    <!-- TOP BAR: Localização + Busca + Atualizar GPS -->
+    <header class="topbar">
+      <button id="btn-gps" class="location-pill" title="Atualizar minha localização via GPS">
+        <span class="loc-pin-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+          </svg>
+        </span>
+        <span id="city-name" class="city-name">Localizando...</span>
+        <span id="updated-time" class="updated-badge"></span>
+      </button>
+
+      <div class="topbar-actions">
+        <button id="btn-open-search" class="icon-btn" aria-label="Buscar cidade" title="Escolher outra cidade">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="20" y1="20" x2="16.35" y2="16.35"></line>
+          </svg>
+        </button>
+        <button id="btn-refresh" class="icon-btn" aria-label="Atualizar previsão" title="Atualizar dados">
+          <svg id="refresh-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 16h5v5"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- BANNER DE INSTALAÇÃO NO iOS (Exibido apenas quando aberto fora da Tela de Início no iPhone) -->
+    <section id="ios-install-banner" class="glass-card ios-install-card hidden">
+      <div class="install-header">
+        <img src="/static/icons/icon-180.png" alt="Rain Check" class="install-app-icon" />
+        <div>
+          <h3>Instale no seu iPhone</h3>
+          <p>Para receber a <strong>notificação automática às 21h</strong> na tela bloqueada, adicione o app à Tela de Início:</p>
+        </div>
+      </div>
+      <ol class="install-steps">
+        <li>Toque no botão <strong>Compartilhar</strong> <span class="ios-share-symbol">⎋</span> na barra do Safari</li>
+        <li>Role e escolha <strong>"Adicionar à Tela de Início"</strong> <span class="ios-plus-symbol">＋</span></li>
+        <li>Abra o <strong>Rain Check</strong> pelo ícone criado na sua tela inicial e ative o alerta abaixo!</li>
+      </ol>
+    </section>
+
+    <!-- CARD PRINCIPAL (HERO): VAI CHOVER AMANHÃ? -->
+    <section id="tomorrow-hero" class="hero-verdict-card verdict-loading">
+      <div class="verdict-top-row">
+        <span id="verdict-badge" class="verdict-badge">ANALISANDO PREVISÃO...</span>
+        <span id="tomorrow-date-label" class="tomorrow-date-label">Amanhã</span>
+      </div>
+
+      <div class="verdict-main">
+        <div id="verdict-icon-wrap" class="verdict-icon-wrap"></div>
+        <div class="verdict-text-col">
+          <h1 id="verdict-headline" class="verdict-headline">Verificando se vai chover amanhã...</h1>
+          <p id="verdict-summary" class="verdict-summary">Obtendo coordenadas do seu aparelho e consultando radares meteorológicos.</p>
+        </div>
+      </div>
+
+      <!-- 4 Indicadores Rápidos de Amanhã -->
+      <div class="tomorrow-metrics-grid">
+        <div class="metric-box">
+          <span class="metric-label">Chance Máx.</span>
+          <strong id="tom-prob" class="metric-value">--%</strong>
+        </div>
+        <div class="metric-box">
+          <span class="metric-label">Volume Chuva</span>
+          <strong id="tom-mm" class="metric-value">-- mm</strong>
+        </div>
+        <div class="metric-box">
+          <span class="metric-label">Pico de Chuva</span>
+          <strong id="tom-peak" class="metric-value">--</strong>
+        </div>
+        <div class="metric-box">
+          <span class="metric-label">Mín / Máx</span>
+          <strong id="tom-temps" class="metric-value">--° / --°</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESUMO RÁPIDO DO MOMENTO ATUAL -->
+    <section class="glass-card current-strip">
+      <div class="current-left">
+        <div id="current-icon" class="current-weather-icon"></div>
+        <div>
+          <div class="current-label-row">
+            <span class="tag-now">AGORA</span>
+            <span id="current-desc" class="current-desc">--</span>
+          </div>
+          <div class="current-sub">
+            Sensação <strong id="current-feels">--°</strong> · Umidade <strong id="current-humidity">--%</strong> · Vento <strong id="current-wind">-- km/h</strong>
+          </div>
+        </div>
+      </div>
+      <div class="current-right">
+        <span id="current-temp" class="current-temp-big">--°</span>
+        <span id="current-hilo" class="current-hilo">H:--° M:--°</span>
+      </div>
+    </section>
+
+    <!-- PREVISÃO DAS PRÓXIMAS 24 HORAS (Carrossel Hora a Hora) -->
+    <section class="glass-card section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Próximas 24 Horas</h2>
+          <p id="next12-subtitle" class="section-subtitle">Evolução hora a hora a partir de agora</p>
+        </div>
+      </div>
+      <div id="hourly-scroll" class="hourly-scroll">
+        <!-- Preenchido via JS -->
+      </div>
+    </section>
+
+    <!-- DETALHAMENTO DO DIA SEGUINTE (Manhã, Tarde, Noite, Madrugada + Hora a Hora de Amanhã) -->
+    <section class="glass-card section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Como Será o Dia de Amanhã</h2>
+          <p class="section-subtitle">Previsão dividida por turno para você se planejar</p>
+        </div>
+        <button id="btn-toggle-tomorrow-hours" class="pill-btn">Ver 24h de amanhã</button>
+      </div>
+
+      <div id="tomorrow-periods-grid" class="periods-grid">
+        <!-- Madrugada, Manhã, Tarde, Noite -->
+      </div>
+
+      <!-- Gaveta expansível com todas as 24h de amanhã -->
+      <div id="tomorrow-all-hours-wrap" class="tomorrow-hours-drawer hidden">
+        <div class="drawer-divider"></div>
+        <h3 class="drawer-title">Hora a Hora de Amanhã (00h às 23h)</h3>
+        <div id="tomorrow-hourly-scroll" class="hourly-scroll"></div>
+      </div>
+    </section>
+
+    <!-- CENTRAL DE NOTIFICAÇÃO DIÁRIA ÀS 21H (Background Push) -->
+    <section class="glass-card section-card notification-card">
+      <div class="notif-header-row">
+        <div class="notif-title-group">
+          <div class="bell-badge">🔔</div>
+          <div>
+            <h2 class="section-title">Alerta Diário às 21h</h2>
+            <p id="notif-status-text" class="section-subtitle">Receba todo dia às 21:00 se vai chover no dia seguinte</p>
+          </div>
+        </div>
+        <label class="ios-switch" aria-label="Ativar alerta diário às 21h">
+          <input type="checkbox" id="toggle-push" />
+          <span class="ios-slider"></span>
+        </label>
+      </div>
+
+      <!-- Configuração de horário (padrão 21:00) + Botão de Teste Instantâneo -->
+      <div class="notif-controls-row">
+        <div class="time-picker-group">
+          <label for="input-notify-time">Horário do alerta:</label>
+          <input type="time" id="input-notify-time" value="21:00" class="ios-time-input" />
+        </div>
+        <button id="btn-test-push" class="btn-secondary">
+          Disparar Teste Agora
+        </button>
+      </div>
+
+      <!-- Prévia da notificação real que chegará às 21h -->
+      <div class="ios-lockscreen-preview">
+        <div class="preview-header">
+          <img src="/static/icons/icon-180.png" alt="Icon" class="preview-icon" />
+          <span class="preview-appname">RAIN CHECK · PRÉVIA DAS 21:00</span>
+          <span class="preview-time">21:00</span>
+        </div>
+        <strong id="preview-notif-title" class="preview-title">Carregando prévia...</strong>
+        <p id="preview-notif-body" class="preview-body">Aguardando dados meteorológicos da sua localização.</p>
+      </div>
+      <p id="push-feedback-msg" class="push-feedback hidden"></p>
+    </section>
+
+    <!-- PREVISÃO DOS PRÓXIMOS 7 DIAS -->
+    <section class="glass-card section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Próximos 7 Dias</h2>
+          <p class="section-subtitle">Probabilidade de chuva e temperaturas da semana</p>
+        </div>
+      </div>
+      <div id="daily-list" class="daily-list">
+        <!-- Preenchido via JS -->
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <p>Dados meteorológicos de alta precisão via Open-Meteo · Atualização automática em background</p>
+    </footer>
+  </div>
+
+  <!-- MODAL DE BUSCA DE CIDADE -->
+  <div id="search-modal" class="modal-overlay hidden">
+    <div class="modal-sheet glass-card">
+      <div class="modal-header">
+        <h3>Escolher Localização</h3>
+        <button id="btn-close-search" class="icon-btn" aria-label="Fechar">✕</button>
+      </div>
+      <div class="search-input-wrap">
+        <input type="text" id="city-search-input" placeholder="Digite sua cidade (ex: São Paulo, Rio, Curitiba)..." autocomplete="off" />
+      </div>
+      <button id="btn-use-current-gps" class="gps-full-btn">
+        📍 Usar localização atual do GPS do iPhone
+      </button>
+      <div id="city-search-results" class="search-results-list"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
