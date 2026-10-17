@@ -1,0 +1,26 @@
+name: Alerta Diario de Chuva as 21h (BRT)
+
+on:
+  schedule:
+    # 00:00 UTC = 21:00 Horário de Brasília (America/Sao_Paulo)
+    - cron: "0 0 * * *"
+  workflow_dispatch: # Permite testar manualmente com 1 clique no GitHub
+
+jobs:
+  send-daily-rain-alert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install pywebpush py-vapid requests cryptography
+
+      - name: Disparar notificacao Push das 21h diretamente
+        run: |
+          python -c "from app import run_scheduled_notifications_check; print(run_scheduled_notifications_check(force_all=True))"
