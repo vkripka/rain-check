@@ -1,20 +1,88 @@
 // =========================================================================
-// RAIN CHECK — LÓGICA DO APLICATIVO (GPS, Clima, UI e Web Push às 21h)
+// RAIN CHECK — LÓGICA DO APLICATIVO (GPS, Clima Direto + Web Push às 21h)
 // =========================================================================
 
 const STORAGE_KEY_LOC = "raincheck_saved_location_v1";
 const STORAGE_KEY_TIME = "raincheck_notify_time_v1";
+const STORAGE_KEY_CACHE = "raincheck_last_weather_v1";
 
 let currentState = {
-  lat: -23.5505,
-  lon: -46.6333,
-  city: "São Paulo, SP",
+  lat: -23.208,
+  lon: -45.9031,
+  city: "São José dos Campos, SP",
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
   notifyTime: localStorage.getItem(STORAGE_KEY_TIME) || "21:00",
   swRegistration: null,
   pushSubscription: null,
   weatherData: null
 };
+
+const WMO_DESCRIPTIONS = {
+  0: ["Céu limpo", "sun"],
+  1: ["Predominantemente limpo", "sun-cloud"],
+  2: ["Parcialmente nublado", "cloud-sun"],
+  3: ["Encoberto", "cloud"],
+  45: ["Nevoeiro", "fog"],
+  48: ["Nevoeiro com geada", "fog"],
+  51: ["Garoa leve", "drizzle"],
+  53: ["Garoa moderada", "drizzle"],
+  55: ["Garoa intensa", "drizzle"],
+  56: ["Garoa gelada", "drizzle"],
+  57: ["Garoa gelada densa", "drizzle"],
+  61: ["Chuva fraca", "rain"],
+  63: ["Chuva moderada", "rain"],
+  65: ["Chuva forte", "heavy-rain"],
+  66: ["Chuva congelante leve", "rain"],
+  67: ["Chuva congelante forte", "heavy-rain"],
+  71: ["Neve fraca", "snow"],
+  73: ["Neve moderada", "snow"],
+  75: ["Neve forte", "snow"],
+  77: ["Grãos de neve", "snow"],
+  80: ["Pancadas de chuva leves", "showers"],
+  81: ["Pancadas de chuva moderadas", "showers"],
+  82: ["Pancadas de chuva fortes", "heavy-rain"],
+  85: ["Pancadas de neve", "snow"],
+  86: ["Pancadas de neve fortes", "snow"],
+  95: ["Tempestade com raios", "thunderstorm"],
+  96: ["Tempestade com granizo leve", "thunderstorm"],
+  99: ["Tempestade severa com granizo", "thunderstorm"]
+};
+
+const RAIN_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99]);
+
+function wmoInfo(code) {
+  const c = Number(code || 0);
+  const entry = WMO_DESCRIPTIONS[c] || ["Parcialmente nublado", "cloud-sun"];
+  return { code: c, description: entry[0], icon: entry[1] };
+}
+
+function formatRainWindows(rainyHours) {
+  if (!rainyHours || rainyHours.length === 0) return null;
+  const sorted = [...new Set(rainyHours)].sort((a, b) => a - b);
+  const ranges = [];
+  let start = sorted[0];
+  let prev = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === prev + 1) {
+      prev = sorted[i];
+    } else {
+      ranges.push([start, prev]);
+      start = sorted[i];
+      prev = sorted[i];
+    }
+  }
+  ranges.push([start, prev]);
+
+  const parts = ranges.map(([s, e]) => {
+    const pad = (n) => String(n).padStart(2, "0");
+    if (s === e) return `às ${pad(s)}h`;
+    return `das ${pad(s)}h às ${pad((e + 1) % 24)}h`;
+  });
+
+  if (parts.length === 1) return parts[0];
+  return parts.slice(0, -1).join(", ") + " e " + parts[parts.length - 1];
+}
 
 // Ícones SVG vetoriais nítidos estilo iOS Weather
 function getWeatherSvg(iconType, size = 28) {
@@ -75,13 +143,8 @@ function getWeatherSvg(iconType, size = 28) {
 }
 
 function getVerdictHeroSvg(verdict) {
-  if (verdict === "YES") {
-    // Guarda-chuva com gotas de chuva
-    return getWeatherSvg("heavy-rain", 66);
-  }
-  if (verdict === "MAYBE") {
-    return getWeatherSvg("showers", 66);
-  }
+  if (verdict === "YES") return getWeatherSvg("heavy-rain", 66);
+  if (verdict === "MAYBE") return getWeatherSvg("showers", 66);
   return getWeatherSvg("sun", 66);
 }
 
@@ -113,7 +176,7 @@ function checkIOSInstallBanner() {
 }
 
 // =========================================================================
-// GEOLOCALIZAÇÃO E BUSCA DE PREVISÃO
+// GEOLOCALIZAÇÃO E BUSCA DIRETA DE CLIMA (Ultra-rápida direto do iPhone)
 // =========================================================================
 function loadSavedLocation() {
   try {
@@ -123,7 +186,7 @@ function loadSavedLocation() {
       if (parsed && typeof parsed.lat === "number" && typeof parsed.lon === "number") {
         currentState.lat = parsed.lat;
         currentState.lon = parsed.lon;
-        currentState.city = parsed.city || "";
+        currentState.city = parsed.city || currentState.city;
         return true;
       }
     }
@@ -132,13 +195,27 @@ function loadSavedLocation() {
 }
 
 function saveLocation(lat, lon, city) {
-  currentState.lat = lat;
-  currentState.lon = lon;
+  currentState.lat = Number(lat);
+  currentState.lon = Number(lon);
   if (city) currentState.city = city;
   localStorage.setItem(
     STORAGE_KEY_LOC,
     JSON.stringify({ lat: currentState.lat, lon: currentState.lon, city: currentState.city })
   );
+}
+
+async function resolveCityNameDirect(lat, lon) {
+  try {
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`;
+    const r = await fetch(url);
+    if (r.ok) {
+      const d = await r.json();
+      const city = d.city || d.locality || d.principalSubdivision || "Sua Localização";
+      const uf = (d.principalSubdivisionCode || "").replace("BR-", "");
+      return uf && city !== uf ? `${city}, ${uf}` : city;
+    }
+  } catch (e) {}
+  return currentState.city || "Sua Localização";
 }
 
 function requestDeviceGPS(showSpinner = true) {
@@ -153,18 +230,209 @@ function requestDeviceGPS(showSpinner = true) {
   }
 
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
+    async (pos) => {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
-      saveLocation(lat, lon, "");
-      fetchWeather(lat, lon, "");
+      const city = await resolveCityNameDirect(lat, lon);
+      saveLocation(lat, lon, city);
+      fetchWeather(lat, lon, city);
     },
     (err) => {
-      console.warn("Permissão de GPS negada ou indisponível, usando localização salva:", err.message);
+      console.warn("GPS indisponível ou negado, usando localização padrão/salva:", err.message);
       fetchWeather(currentState.lat, currentState.lon, currentState.city);
     },
-    { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+    { enableHighAccuracy: false, timeout: 6000, maximumAge: 600000 }
   );
+}
+
+function buildWeatherAnalysisFromOpenMeteo(raw, lat, lon, cityName) {
+  const tzName = raw.timezone || "America/Sao_Paulo";
+  const now = new Date();
+
+  const fmtDate = (dt) => {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const todayStr = fmtDate(now);
+  const tomDt = new Date(now.getTime() + 86400000);
+  const tomorrowStr = fmtDate(tomDt);
+  const nowHourStr = `${todayStr}T${String(now.getHours()).padStart(2, "0")}:00`;
+  const updatedAt = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+  const h = raw.hourly || {};
+  const hourlyList = (h.time || []).map((tStr, i) => {
+    const info = wmoInfo(h.weather_code ? h.weather_code[i] : 0);
+    return {
+      time: tStr,
+      date: tStr.slice(0, 10),
+      hour: parseInt(tStr.slice(11, 13), 10),
+      hour_label: `${tStr.slice(11, 13)}h`,
+      temp: Math.round(h.temperature_2m?.[i] ?? 0),
+      feels_like: Math.round(h.apparent_temperature?.[i] ?? 0),
+      rain_prob: Math.round(h.precipitation_probability?.[i] ?? 0),
+      rain_mm: Number((h.precipitation?.[i] ?? 0).toFixed(1)),
+      weather_code: info.code,
+      description: info.description,
+      icon: info.icon,
+      wind_kmh: Math.round(h.wind_speed_10m?.[i] ?? 0)
+    };
+  });
+
+  let startIdx = hourlyList.findIndex((item) => item.time >= nowHourStr);
+  if (startIdx < 0) startIdx = 0;
+  const next24h = hourlyList.slice(startIdx, startIdx + 24);
+  const tomorrowHours = hourlyList.filter((item) => item.date === tomorrowStr);
+
+  const tomMaxProb = tomorrowHours.reduce((max, x) => Math.max(max, x.rain_prob), 0);
+  const tomTotalMm = Number(tomorrowHours.reduce((sum, x) => sum + x.rain_mm, 0).toFixed(1));
+  const tomMinTemp = tomorrowHours.length ? Math.min(...tomorrowHours.map((x) => x.temp)) : 0;
+  const tomMaxTemp = tomorrowHours.length ? Math.max(...tomorrowHours.map((x) => x.temp)) : 0;
+
+  const rainyHoursNums = tomorrowHours
+    .filter((x) => x.rain_prob >= 45 || x.rain_mm >= 0.3 || RAIN_CODES.has(x.weather_code))
+    .map((x) => x.hour);
+  const rainWindowText = formatRainWindows(rainyHoursNums);
+
+  let peakHourObj = null;
+  for (const x of tomorrowHours) {
+    if (!peakHourObj || x.rain_prob > peakHourObj.rain_prob || (x.rain_prob === peakHourObj.rain_prob && x.rain_mm > peakHourObj.rain_mm)) {
+      peakHourObj = x;
+    }
+  }
+
+  let verdict, headline, badgeText, summary, notifTitle, notifBody;
+  if (tomMaxProb >= 50 || tomTotalMm >= 1.2) {
+    verdict = "YES";
+    headline = "Sim, vai chover amanhã!";
+    badgeText = "LEVE O GUARDA-CHUVA ☔";
+    const intensity =
+      tomTotalMm >= 15 || tomMaxProb >= 80
+        ? "Chuva forte/significativa prevista"
+        : tomTotalMm >= 5
+        ? "Chuva moderada prevista"
+        : "Pancadas de chuva ou chuva leve";
+    summary = rainWindowText
+      ? `${intensity} com ${tomMaxProb}% de probabilidade máxima (acumulado de ${tomTotalMm} mm), concentrada ${rainWindowText}.`
+      : `${intensity} com ${tomMaxProb}% de chance e volume estimado de ${tomTotalMm} mm ao longo do dia.`;
+    notifTitle = `🌧️ Vai chover amanhã em ${cityName}!`;
+    notifBody = `Chance de ${tomMaxProb}% (${tomTotalMm} mm)${rainWindowText ? " " + rainWindowText : ""}. Temp: ${tomMinTemp}°C a ${tomMaxTemp}°C. Prepare o guarda-chuva!`;
+  } else if (tomMaxProb >= 30 || tomTotalMm >= 0.3) {
+    verdict = "MAYBE";
+    headline = "Pode chover fraco amanhã";
+    badgeText = "ATENÇÃO AO TEMPO 🌦️";
+    summary = rainWindowText
+      ? `Há uma chance moderada de ${tomMaxProb}% (${tomTotalMm} mm), principalmente ${rainWindowText}. Vale ter um guarda-chuva por perto.`
+      : `Probabilidade moderada de ${tomMaxProb}% com pouca água prevista (${tomTotalMm} mm). Temperaturas entre ${tomMinTemp}°C e ${tomMaxTemp}°C.`;
+    notifTitle = `🌦️ Possibilidade de chuva amanhã (${tomMaxProb}%)`;
+    notifBody = `Previsão para ${cityName}: ${tomMaxProb}% de chance (${tomTotalMm} mm)${rainWindowText ? " " + rainWindowText : ""}. Mín ${tomMinTemp}°C / Máx ${tomMaxTemp}°C.`;
+  } else {
+    verdict = "NO";
+    headline = "Não vai chover amanhã!";
+    badgeText = "TEMPO FIRME ☀️";
+    summary = `Dia sem chuva previsto! Probabilidade máxima de apenas ${tomMaxProb}% e temperaturas variando entre ${tomMinTemp}°C e ${tomMaxTemp}°C.`;
+    notifTitle = `☀️ Sem chuva amanhã em ${cityName}!`;
+    notifBody = `Tempo firme amanhã (chance de chuva de apenas ${tomMaxProb}%). Temperaturas entre ${tomMinTemp}°C e ${tomMaxTemp}°C. Aproveite o dia!`;
+  }
+
+  const periodDefs = [
+    ["madrugada", "Madrugada", "00h – 06h", 0, 5],
+    ["manha", "Manhã", "06h – 12h", 6, 11],
+    ["tarde", "Tarde", "12h – 18h", 12, 17],
+    ["noite", "Noite", "18h – 24h", 18, 23]
+  ];
+  const tomorrowPeriods = periodDefs.map(([key, label, hoursLabel, hStart, hEnd]) => {
+    const pHours = tomorrowHours.filter((x) => x.hour >= hStart && x.hour <= hEnd);
+    const pMaxProb = pHours.reduce((m, x) => Math.max(m, x.rain_prob), 0);
+    const pSumMm = Number(pHours.reduce((s, x) => s + x.rain_mm, 0).toFixed(1));
+    const pMinT = pHours.length ? Math.min(...pHours.map((x) => x.temp)) : 0;
+    const pMaxT = pHours.length ? Math.max(...pHours.map((x) => x.temp)) : 0;
+    let worst = pHours[0] || { description: "Limpo", icon: "sun", rain_prob: 0, weather_code: 0 };
+    for (const x of pHours) {
+      if (x.rain_prob > worst.rain_prob || (x.rain_prob === worst.rain_prob && x.weather_code > worst.weather_code)) {
+        worst = x;
+      }
+    }
+    return {
+      key,
+      label,
+      hours_label: hoursLabel,
+      rain_prob: pMaxProb,
+      rain_mm: pSumMm,
+      temp_min: pMinT,
+      temp_max: pMaxT,
+      description: worst.description,
+      icon: worst.icon
+    };
+  });
+
+  const next12h = next24h.slice(0, 12);
+  const next12MaxProb = next12h.reduce((m, x) => Math.max(m, x.rain_prob), 0);
+  const next12Mm = Number(next12h.reduce((s, x) => s + x.rain_mm, 0).toFixed(1));
+
+  const d = raw.daily || {};
+  const weekdaysPt = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const dailyList = (d.time || []).map((dStr, i) => {
+    const [yy, mm, dd] = dStr.split("-").map(Number);
+    const dtObj = new Date(yy, mm - 1, dd);
+    const dayLabel =
+      dStr === todayStr
+        ? "Hoje"
+        : dStr === tomorrowStr
+        ? "Amanhã"
+        : `${weekdaysPt[dtObj.getDay()]}, ${String(dd).padStart(2, "0")}/${String(mm).padStart(2, "0")}`;
+    const dInfo = wmoInfo(d.weather_code?.[i] ?? 0);
+    return {
+      date: dStr,
+      label: dayLabel,
+      temp_max: Math.round(d.temperature_2m_max?.[i] ?? 0),
+      temp_min: Math.round(d.temperature_2m_min?.[i] ?? 0),
+      rain_prob: Math.round(d.precipitation_probability_max?.[i] ?? 0),
+      rain_mm: Number((d.precipitation_sum?.[i] ?? 0).toFixed(1)),
+      description: dInfo.description,
+      icon: dInfo.icon
+    };
+  });
+
+  const curr = raw.current || {};
+  const currInfo = wmoInfo(curr.weather_code ?? 0);
+  const todayDaily = dailyList[0] || {};
+
+  return {
+    updated_at: updatedAt,
+    timezone: tzName,
+    location: { lat: Number(lat), lon: Number(lon), city: cityName },
+    current: {
+      temp: Math.round(curr.temperature_2m ?? 0),
+      feels_like: Math.round(curr.apparent_temperature ?? 0),
+      humidity: Math.round(curr.relative_humidity_2m ?? 0),
+      wind_kmh: Math.round(curr.wind_speed_10m ?? 0),
+      description: currInfo.description,
+      icon: currInfo.icon,
+      temp_max: todayDaily.temp_max ?? Math.round(curr.temperature_2m ?? 0),
+      temp_min: todayDaily.temp_min ?? Math.round(curr.temperature_2m ?? 0)
+    },
+    tomorrow: {
+      date: tomorrowStr,
+      verdict,
+      headline,
+      badge_text: badgeText,
+      summary,
+      max_prob: tomMaxProb,
+      total_mm: tomTotalMm,
+      temp_min: tomMinTemp,
+      temp_max: tomMaxTemp,
+      peak_hour: peakHourObj && tomMaxProb > 0 ? `${String(peakHourObj.hour).padStart(2, "0")}h (${peakHourObj.rain_prob}%)` : "—",
+      periods: tomorrowPeriods,
+      hours: tomorrowHours,
+      notification_preview: { title: notifTitle, body: notifBody }
+    },
+    next_12h_summary: { max_prob: next12MaxProb, total_mm: next12Mm },
+    next_24h: next24h,
+    daily_7d: dailyList
+  };
 }
 
 async function fetchWeather(lat, lon, city = "") {
@@ -172,25 +440,43 @@ async function fetchWeather(lat, lon, city = "") {
   refreshIcon.classList.add("spin");
 
   try {
-    const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
-    if (city) params.set("city", city);
+    let resolvedCity = city || currentState.city;
+    if (!resolvedCity || resolvedCity === "Obtendo GPS..." || resolvedCity === "Localizando...") {
+      resolvedCity = await resolveCityNameDirect(lat, lon);
+    }
 
-    const res = await fetch(`/api/weather?${params.toString()}`);
-    if (!res.ok) throw new Error("Falha ao consultar servidor meteorológico");
-    const data = await res.json();
+    // 1. Consulta direta da API Open-Meteo pelo navegador do iPhone (resposta instantânea <200ms)
+    const omUrl =
+      `https://api.open-meteo.com/v1/forecast?latitude=${Number(lat).toFixed(4)}&longitude=${Number(lon).toFixed(4)}` +
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,wind_speed_10m` +
+      `&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max` +
+      `&timezone=auto&forecast_days=7`;
 
+    const res = await fetch(omUrl);
+    if (!res.ok) throw new Error("Falha ao buscar dados meteorológicos");
+    const raw = await res.json();
+
+    const data = buildWeatherAnalysisFromOpenMeteo(raw, lat, lon, resolvedCity);
     currentState.weatherData = data;
     currentState.timezone = data.timezone || currentState.timezone;
     saveLocation(data.location.lat, data.location.lon, data.location.city);
+    localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(data));
 
     renderWeatherUI(data);
 
-    // Se o usuário já tem o Push de 21h ativo, atualiza silenciosamente as coordenadas no servidor
     if (currentState.pushSubscription) {
       syncSubscriptionWithServer(currentState.pushSubscription, true);
     }
   } catch (err) {
     console.error("Erro ao carregar previsão:", err);
+    const cached = localStorage.getItem(STORAGE_KEY_CACHE);
+    if (cached) {
+      try {
+        renderWeatherUI(JSON.parse(cached));
+        return;
+      } catch (e) {}
+    }
     document.getElementById("verdict-headline").textContent = "Sem conexão no momento";
     document.getElementById("verdict-summary").textContent =
       "Toque no botão de atualizar no canto superior direito para tentar novamente.";
@@ -203,11 +489,9 @@ async function fetchWeather(lat, lon, city = "") {
 // RENDERIZAÇÃO DA INTERFACE
 // =========================================================================
 function renderWeatherUI(data) {
-  // 1. Topbar
   document.getElementById("city-name").textContent = data.location.city;
   document.getElementById("updated-time").textContent = `• ${data.updated_at}`;
 
-  // 2. Tema visual e Card Principal (Vai Chover Amanhã?)
   const tom = data.tomorrow;
   const heroCard = document.getElementById("tomorrow-hero");
   heroCard.classList.remove("verdict-loading", "verdict-yes", "verdict-maybe", "verdict-no");
@@ -236,7 +520,6 @@ function renderWeatherUI(data) {
   document.getElementById("tom-peak").textContent = tom.peak_hour;
   document.getElementById("tom-temps").textContent = `${tom.temp_min}° / ${tom.temp_max}°`;
 
-  // 3. Momento Atual ("AGORA")
   const curr = data.current;
   document.getElementById("current-icon").innerHTML = getWeatherSvg(curr.icon, 40);
   document.getElementById("current-desc").textContent = curr.description;
@@ -246,7 +529,6 @@ function renderWeatherUI(data) {
   document.getElementById("current-temp").textContent = `${curr.temp}°`;
   document.getElementById("current-hilo").textContent = `Máx:${curr.temp_max}° Mín:${curr.temp_min}°`;
 
-  // 4. Próximas 24 Horas
   const n12 = data.next_12h_summary;
   const subEl = document.getElementById("next12-subtitle");
   if (n12.max_prob >= 40 || n12.total_mm >= 0.3) {
@@ -272,7 +554,6 @@ function renderWeatherUI(data) {
     })
     .join("");
 
-  // 5. Turnos de Amanhã (Madrugada, Manhã, Tarde, Noite)
   const periodsGrid = document.getElementById("tomorrow-periods-grid");
   periodsGrid.innerHTML = tom.periods
     .map((p) => {
@@ -304,7 +585,6 @@ function renderWeatherUI(data) {
     })
     .join("");
 
-  // Gaveta Hora a Hora de Amanhã (00h - 23h)
   const tomHourlyScroll = document.getElementById("tomorrow-hourly-scroll");
   tomHourlyScroll.innerHTML = tom.hours
     .map((h) => {
@@ -321,13 +601,11 @@ function renderWeatherUI(data) {
     })
     .join("");
 
-  // 6. Prévia da Notificação das 21h
   if (tom.notification_preview) {
     document.getElementById("preview-notif-title").textContent = tom.notification_preview.title;
     document.getElementById("preview-notif-body").textContent = tom.notification_preview.body;
   }
 
-  // 7. Lista de 7 Dias
   const dailyList = document.getElementById("daily-list");
   dailyList.innerHTML = data.daily_7d
     .map((d) => {
@@ -447,21 +725,25 @@ async function subscribeUserToPush() {
 }
 
 async function syncSubscriptionWithServer(subscription, silent = false) {
-  const res = await fetch("/api/subscribe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      subscription: subscription.toJSON ? subscription.toJSON() : subscription,
-      lat: currentState.lat,
-      lon: currentState.lon,
-      city: currentState.city,
-      timezone: currentState.timezone,
-      notify_time: currentState.notifyTime,
-      enabled: true
-    })
-  });
-  if (!res.ok && !silent) {
-    throw new Error("Erro ao salvar inscrição no servidor");
+  try {
+    const res = await fetch("/api/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subscription: subscription.toJSON ? subscription.toJSON() : subscription,
+        lat: currentState.lat,
+        lon: currentState.lon,
+        city: currentState.city,
+        timezone: currentState.timezone,
+        notify_time: currentState.notifyTime,
+        enabled: true
+      })
+    });
+    if (!res.ok && !silent) {
+      throw new Error("Erro ao salvar inscrição no servidor");
+    }
+  } catch (e) {
+    if (!silent) throw e;
   }
 }
 
@@ -493,6 +775,7 @@ async function triggerTestNotification() {
 
   showPushFeedback("Enviando notificação de teste para o seu aparelho...");
   try {
+    const preview = currentState.weatherData?.tomorrow?.notification_preview || null;
     const res = await fetch("/api/test-notification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -502,7 +785,8 @@ async function triggerTestNotification() {
           : currentState.pushSubscription,
         lat: currentState.lat,
         lon: currentState.lon,
-        city: currentState.city
+        city: currentState.city,
+        preview
       })
     });
     const data = await res.json();
@@ -523,24 +807,18 @@ document.addEventListener("DOMContentLoaded", () => {
   timeInput.value = currentState.notifyTime;
   document.querySelector(".preview-time").textContent = currentState.notifyTime;
 
-  // Carrega localização salva imediatamente para resposta instantânea, e em seguida atualiza via GPS
-  const hadSaved = loadSavedLocation();
-  if (hadSaved) {
-    fetchWeather(currentState.lat, currentState.lon, currentState.city);
-    requestDeviceGPS(false);
-  } else {
-    requestDeviceGPS(true);
-  }
+  // Carrega imediatamente a previsão padrão/salva e atualiza o GPS em paralelo
+  loadSavedLocation();
+  fetchWeather(currentState.lat, currentState.lon, currentState.city);
+  requestDeviceGPS(false);
 
   initServiceWorkerAndPush();
 
-  // Botões da barra superior
   document.getElementById("btn-gps").addEventListener("click", () => requestDeviceGPS(true));
   document.getElementById("btn-refresh").addEventListener("click", () =>
     fetchWeather(currentState.lat, currentState.lon, currentState.city)
   );
 
-  // Gaveta de 24h completas de amanhã
   const btnToggleTom = document.getElementById("btn-toggle-tomorrow-hours");
   const drawerTom = document.getElementById("tomorrow-all-hours-wrap");
   btnToggleTom.addEventListener("click", () => {
@@ -548,7 +826,6 @@ document.addEventListener("DOMContentLoaded", () => {
     btnToggleTom.textContent = isHidden ? "Ver 24h de amanhã" : "Ocultar 24h";
   });
 
-  // Controles de Notificação Push
   document.getElementById("toggle-push").addEventListener("change", (e) => {
     if (e.target.checked) {
       subscribeUserToPush();
@@ -572,7 +849,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btn-test-push").addEventListener("click", triggerTestNotification);
 
-  // Modal de busca de cidade
+  // Modal de busca de cidade (direto via Geocoding API do navegador)
   const searchModal = document.getElementById("search-modal");
   const searchInput = document.getElementById("city-search-input");
   const searchResults = document.getElementById("city-search-results");
@@ -603,17 +880,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     searchDebounce = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search-city?q=${encodeURIComponent(q)}`);
+        const res = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=pt&format=json`
+        );
         const data = await res.json();
         searchResults.innerHTML = (data.results || [])
-          .map(
-            (item) => `
-            <div class="search-result-item" data-lat="${item.lat}" data-lon="${item.lon}" data-name="${item.display_name}">
-              <span>📍 ${item.display_name}</span>
-              <span style="opacity:0.5">→</span>
-            </div>
-          `
-          )
+          .map((it) => {
+            const parts = [it.name, it.admin1, it.country].filter(Boolean);
+            const disp = parts.join(", ");
+            return `
+              <div class="search-result-item" data-lat="${it.latitude}" data-lon="${it.longitude}" data-name="${disp}">
+                <span>📍 ${disp}</span>
+                <span style="opacity:0.5">→</span>
+              </div>
+            `;
+          })
           .join("");
 
         searchResults.querySelectorAll(".search-result-item").forEach((el) => {
@@ -627,10 +908,9 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         });
       } catch (err) {}
-    }, 280);
+    }, 250);
   });
 
-  // Atualiza automaticamente quando o usuário volta para o app no iPhone
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       fetchWeather(currentState.lat, currentState.lon, currentState.city);

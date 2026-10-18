@@ -1,4 +1,4 @@
-const CACHE_NAME = "rain-check-v1";
+const CACHE_NAME = "rain-check-v2";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",

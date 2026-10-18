@@ -565,28 +565,93 @@ def reverse_geocode_coords(lat: float, lon: float) -> str:
 # =====================================================================
 # 5. ENVIO DE WEB PUSH E AGENDADOR EM SEGUNDO PLANO (21:00 DIÁRIO)
 # =====================================================================
-def send_push_to_subscriber(sub_entry: dict, is_test: bool = False) -> tuple[bool, str]:
+def fetch_met_no_fallback(lat: float, lon: float, city_name: str = "Sua Localização"):
+    """Fallback meteorológico ultra-rápido via Instituto Meteorológico da Noruega (MET Norway) caso o IP do Render sofra timeout na Open-Meteo."""
+    headers = {"User-Agent": "RainCheck-iOS-App/1.0 github.com/vkripka/rain-check"}
+    r = requests.get(
+        "https://api.met.no/weatherapi/locationforecast/2.0/compact",
+        params={"lat": round(float(lat), 4), "lon": round(float(lon), 4)},
+        headers=headers,
+        timeout=8,
+    )
+    r.raise_for_status()
+    timeseries = r.json().get("properties", {}).get("timeseries", [])
+    tz = ZoneInfo("America/Sao_Paulo")
+    tomorrow_str = (datetime.now(tz) + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    tom_mm = 0.0
+    temps = []
+    rainy_hours = []
+    for item in timeseries:
+        dt_utc = datetime.fromisoformat(item["time"].replace("Z", "+00:00"))
+        dt_loc = dt_utc.astimezone(tz)
+        if dt_loc.strftime("%Y-%m-%d") == tomorrow_str:
+            details = item.get("data", {}).get("instant", {}).get("details", {})
+            if "air_temperature" in details:
+                temps.append(round(details["air_temperature"]))
+            n1 = item.get("data", {}).get("next_1_hours", {}) or item.get("data", {}).get("next_6_hours", {})
+            mm = float(n1.get("details", {}).get("precipitation_amount", 0.0))
+            tom_mm += mm
+            if mm >= 0.2:
+                rainy_hours.append(dt_loc.hour)
+
+    tom_mm = round(tom_mm, 1)
+    t_min = min(temps) if temps else 18
+    t_max = max(temps) if temps else 26
+    window_txt = format_rain_windows(rainy_hours)
+
+    if tom_mm >= 1.0:
+        verdict = "YES"
+        title = f"🌧️ Vai chover amanhã em {city_name}!"
+        body = f"Volume previsto de {tom_mm} mm" + (f" ({window_txt})." if window_txt else ".") + f" Temp: {t_min}°C a {t_max}°C. Prepare o guarda-chuva!"
+    elif tom_mm >= 0.2:
+        verdict = "MAYBE"
+        title = f"🌦️ Possibilidade de chuva fraca amanhã"
+        body = f"Previsão para {city_name}: chuva leve ({tom_mm} mm). Mín {t_min}°C / Máx {t_max}°C."
+    else:
+        verdict = "NO"
+        title = f"☀️ Sem chuva amanhã em {city_name}!"
+        body = f"Tempo firme amanhã! Temperaturas entre {t_min}°C e {t_max}°C. Aproveite o dia!"
+
+    return {"verdict": verdict, "title": title, "body": body}
+
+
+def send_push_to_subscriber(sub_entry: dict, is_test: bool = False, custom_preview: dict = None) -> tuple[bool, str]:
     """Busca o clima atualizado em background para a localização do usuário e envia o Web Push."""
     subscription_info = sub_entry.get("subscription")
     if not subscription_info or not subscription_info.get("endpoint"):
         return False, "Inscrição Push inválida."
 
-    lat = sub_entry.get("lat", -23.5505)
-    lon = sub_entry.get("lon", -46.6333)
+    lat = sub_entry.get("lat", -23.208)
+    lon = sub_entry.get("lon", -45.9031)
     city = sub_entry.get("city", "Sua Localização")
 
     try:
-        weather = fetch_and_analyze_weather(lat, lon, city)
-        preview = weather["tomorrow"]["notification_preview"]
-        title = preview["title"]
-        body = preview["body"]
+        if custom_preview and custom_preview.get("title") and custom_preview.get("body"):
+            title = custom_preview["title"]
+            body = custom_preview["body"]
+            verdict = custom_preview.get("verdict", "NO")
+        else:
+            try:
+                weather = fetch_and_analyze_weather(lat, lon, city)
+                preview = weather["tomorrow"]["notification_preview"]
+                title = preview["title"]
+                body = preview["body"]
+                verdict = weather["tomorrow"]["verdict"]
+            except Exception as wm_err:
+                logger.warning(f"Open-Meteo lenta no servidor ({wm_err}), usando fallback MET Norway...")
+                fb = fetch_met_no_fallback(lat, lon, city)
+                title = fb["title"]
+                body = fb["body"]
+                verdict = fb["verdict"]
+
         if is_test:
             title = f"🔔 [Teste] {title}"
 
         payload = json.dumps({
             "title": title,
             "body": body,
-            "verdict": weather["tomorrow"]["verdict"],
+            "verdict": verdict,
             "icon": "/static/icons/icon-192.png",
             "badge": "/static/icons/badge-72.png",
             "url": "/?from=push",
@@ -598,7 +663,7 @@ def send_push_to_subscriber(sub_entry: dict, is_test: bool = False) -> tuple[boo
             data=payload,
             vapid_private_key=VAPID_KEYS["private_key"],
             vapid_claims={"sub": VAPID_KEYS["subject"]},
-            ttl=43200,  # 12 horas de validade caso o iPhone esteja sem sinal no momento exato
+            ttl=43200,
         )
         return True, "Notificação enviada com sucesso!"
     except WebPushException as ex:
@@ -818,9 +883,10 @@ def api_unsubscribe():
 def api_test_notification():
     body = request.get_json(force=True) or {}
     subscription = body.get("subscription")
-    lat = float(body.get("lat", -23.5505))
-    lon = float(body.get("lon", -46.6333))
+    lat = float(body.get("lat", -23.208))
+    lon = float(body.get("lon", -45.9031))
     city = body.get("city") or "Sua Localização"
+    preview = body.get("preview")
 
     if not subscription or not subscription.get("endpoint"):
         return jsonify({"error": "Ative as notificações primeiro antes de testar."}), 400
@@ -831,7 +897,7 @@ def api_test_notification():
         "lon": lon,
         "city": city,
     }
-    ok, msg = send_push_to_subscriber(temp_entry, is_test=True)
+    ok, msg = send_push_to_subscriber(temp_entry, is_test=True, custom_preview=preview)
     if ok:
         return jsonify({"status": "ok", "message": msg})
     return jsonify({"error": msg}), 500
