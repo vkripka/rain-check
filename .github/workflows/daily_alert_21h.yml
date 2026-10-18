@@ -13,6 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Acordar servidor Render e disparar verificacao das 21h
+        run: |
+          curl -s -m 60 "https://rain-check-pwa.onrender.com/api/cron/trigger?force=true" || true
+
       - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -21,6 +25,6 @@ jobs:
       - name: Install dependencies
         run: pip install pywebpush py-vapid requests cryptography
 
-      - name: Disparar notificacao Push das 21h diretamente
+      - name: Garantir envio direto das inscricoes salvas no repositorio
         run: |
           python -c "from app import run_scheduled_notifications_check; print(run_scheduled_notifications_check(force_all=True))"
