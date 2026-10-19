@@ -13,18 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Acordar servidor Render e disparar verificacao das 21h
-        run: |
-          curl -s -m 60 "https://rain-check-pwa.onrender.com/api/cron/trigger?force=true" || true
-
       - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
-        run: pip install pywebpush py-vapid requests cryptography
+      - name: Install all project dependencies
+        run: pip install -r requirements.txt
 
-      - name: Garantir envio direto das inscricoes salvas no repositorio
+      - name: Disparar notificacao Push das 21h diretamente para o iPhone
         run: |
-          python -c "from app import run_scheduled_notifications_check; print(run_scheduled_notifications_check(force_all=True))"
+          python -c "from app import run_scheduled_notifications_check; res = run_scheduled_notifications_check(force_all=True); print('Resultado envio Push:', res)"
+
+      - name: Acordar servidor Render em segundo plano
+        run: |
+          curl -s -m 90 "https://rain-check-pwa.onrender.com/api/vapid-public-key" || true

@@ -126,7 +126,7 @@ def get_or_create_vapid_keys():
         }
 
     if os.path.exists(VAPID_FILE):
-        with open(VAPID_FILE, "r", encoding="utf-8") as f:
+        with open(VAPID_FILE, "r", encoding="utf-8-sig") as f:
             return json.load(f)
 
     logger.info("Gerando novas chaves VAPID ECDSA P-256 para Web Push...")
@@ -167,7 +167,7 @@ def load_subscriptions():
         if not os.path.exists(SUBSCRIPTIONS_FILE):
             return {}
         try:
-            with open(SUBSCRIPTIONS_FILE, "r", encoding="utf-8") as f:
+            with open(SUBSCRIPTIONS_FILE, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Erro ao ler inscrições: {e}")
